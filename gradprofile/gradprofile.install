@@ -1,0 +1,159 @@
+<?php
+
+/**
+ * @file
+ * Install, update and uninstall functions for the gradprofile module.
+ * 
+ */
+ 
+/**
+  * Function enabling upload of PDF files and image files
+  */
+function gradprofile_enable(){
+ 
+ $field = array(
+    'field_name' => 'grad_pdf',
+    'type' => 'file',
+    'cardinality' => 1,
+    'translatable' => TRUE,
+    'locked' => FALSE,
+    'indexes' => array('fid' => array('fid')),
+    'settings' => array(
+      'uri_scheme' => 'public',
+    ),
+    'storage' => array(
+      'type' => 'field_sql_storage',
+      'settings' => array(),
+    ),
+  );
+  field_create_field($field);
+
+
+  // Many of the following values will be defaulted, they're included here as an illustrative examples.
+  // See http://api.drupal.org/api/function/field_create_instance/7
+  $instance = array(
+    'field_name' => 'grad_pdf',
+    'entity_type' => 'node',
+    'label' => 'Resume Upload (Optional)',
+    'bundle' => 'gradprofile',
+    'description' => st('Upload your Resume here'),
+    'required' => FALSE,
+
+    'settings' => array(
+      'file_directory' => 'field/resume',
+      'file_extensions' => 'pdf',
+      'max_filesize' => '',
+      'alt_field' => TRUE,
+      'title_field' => '',
+    ),
+
+    'widget' => array(
+      'type' => 'file_file',
+      'settings' => array(
+        'progress_indicator' => 'throbber',
+        'preview_image_style' => 'thumbnail',
+      ),
+      'weight' => -10,
+    ),
+
+    'display' => array(
+      'default' => array(
+        'title' => t('Resume'),
+        'label' => 'hidden',
+        'type' => 'link',
+        'weight' => 10
+      ),
+    ),
+  );
+  field_create_instance($instance);
+  
+ 
+}
+
+/**
+ * Implements hook_schema(). 
+ * Function that sets up the tables in the database that stores information of each Grad Profile node
+ */
+function gradprofile_schema() {
+  $schema['gradprofile'] = array(
+    'description' => 'Stores grad profile-specific information for grad profile nodes.',
+    'fields' => array(
+      'nid' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => "The gradprofile's {node}.nid.",
+      ),
+      'uid' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => "The gradprofile's {node}.uid.",
+      ),
+      'email' => array(
+        'type' => 'varchar',
+      	'length' => 80,
+        'not null' => FALSE,
+        'description' => 'Email of Grad',
+      ),
+      'phone' => array(
+        'type' => 'varchar',
+      	'length' => 20,
+        'not null' => TRUE,
+        'default' => "n/a",
+        'description' => 'Phone number of grad',
+      ),
+      'address' => array(
+        'type' => 'varchar',
+      	'length' => 120,
+        'not null' => FALSE,
+        'description' => 'Address of grad',
+      ),
+      'city' => array(
+        'type' => 'varchar',
+      	'length' => 80,
+        'not null' => FALSE,
+        'description' => 'City',
+      ),
+      'province' => array(
+        'type' => 'varchar',
+      	'length' => 80,
+        'not null' => FALSE,
+        'description' => 'Province',
+      ),
+		'country' => array(
+        'type' => 'varchar',
+      	'length' => 80,
+        'not null' => FALSE,
+        'description' => 'Country',
+      ),
+      'educationLevel' => array(
+        'type' => 'int',
+      	
+        'not null' => FALSE,
+        'description' => 'Level of Education',
+      ),
+      'jobtype' => array(
+        'type' => 'int',
+      
+        'not null' => FALSE,
+        'description' => 'Job Type Interest ',
+      ),
+      'aboutme' => array(
+        'type' => 'text',
+      	'length' => 1000,
+        'not null' => FALSE,
+        'description' => 'About Me',
+      ),
+    ),
+    'primary key' => array('uid'),
+    'unique keys' => array(
+      'nid' => array('nid'),
+    ),
+  );
+
+  return $schema;
+}
+

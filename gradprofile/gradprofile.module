@@ -1,0 +1,398 @@
+<?php
+
+/**
+ * Hook to display this node in menu bar.
+ *  Provide menu view based on the access arguments.
+ */
+function gradprofile_menu(){
+
+	$items['grad_profile'] = array(
+    'title' => t('Grad Profile'),
+    'page callback' => '_gradprofile_node_view',
+    'access arguments' => array('create gradprofile content'),
+	'menu_name'		   => 'main-menu',
+	);
+
+	return $items;
+}
+
+/**
+ * A function that provides the system to determine
+ * which Grad Profile view to select for Registered Job Seeker
+ * - Prompt to create new Profile if not created yet, prompt to view the node if already created
+ */
+
+function _gradprofile_node_view(){
+
+	global $user, $base_url;
+	$user_id = $user->uid;
+	$result = db_query('SELECT nid FROM {gradprofile} WHERE uid =:user_id', array(':user_id'=> $user_id));
+	if($result->rowCount() == 0){
+		$alt_path = $base_url.'/?q=node/add/gradprofile';
+		drupal_goto($alt_path);
+
+	}
+	else{
+		$node_id = $result->fetchField();
+		$path = $base_url.'/?q=node/'.$node_id;
+		drupal_goto($path);
+	}
+}
+
+
+
+/**
+ * Information about the GradProfile nodes.
+ * To be used in identifying the node
+ */
+
+function gradprofile_node_info() {
+	return array(
+		'gradprofile' =>	array(
+			'name'			=>	t('Grad Profile'),
+			'base'			=>	'gradprofile',
+			'description'	=>	t('Content-Type for Grad Profiles'),
+			'has_title'		=>	TRUE, 
+	      	'title_label' 	=>  t('Name'),
+			'locked'		=>	FALSE,
+			'help'			=>	t('Please fill all required fields, 
+									and preferably optional ones as well.')));
+}
+
+/**
+ * A hook that provides access retrictions to view the grad profile
+ * No users that are not allowed to search grads can see the profile (eg. Unregistered users, other Grads)
+ */
+
+function gradprofile_node_access($node, $op, $account) {
+
+	if($op == 'view' && $node->type == 'gradprofile') {
+		// Only if we can search for grad or we're the author
+		if($account && (user_access("searchgrads", $account) || ($account->uid == $node->uid))) {
+			return NODE_ACCESS_ALLOW;
+		} else {
+			return NODE_ACCESS_DENY;
+		}
+	}
+}
+
+/**
+ * Implement hook_form() with the standard default form.
+ * Hook to input/edit information about the Grad Profile that would be displayed.
+ * */
+function gradprofile_form($node, $form_state) {
+
+	$form['personalInfo'] = array(
+    '#title' => t('Personal Information'), 
+    '#type' => 'fieldset', 
+    '#description' => t('Your Personal Information'), 
+    '#collapsible' => TRUE, 
+    '#collapsed' => FALSE 
+	);
+	$form['personalInfo']['title'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Name'),
+    '#size' => 30,
+    '#required' => TRUE,
+    '#maxlength' => 64,
+    '#default_value' => isset($node->title) ? $node->title : "",
+    '#description' => t('Enter the name to be displayed for your grad profile.'),
+	);
+
+	$form['personalInfo']['aboutme'] = array(
+	  '#type' => 'textarea',
+	  '#title' => t('About Me'),
+	  '#default_value' => isset($node->aboutme) ? $node->aboutme : '',
+	  '#cols' => 2,
+	  '#rows' => 4,
+	  '#required' => FALSE,
+	);
+
+	$form['personalInfo']['email'] = array(
+    '#type' => 'textfield',
+    '#title' => t('E-mail'),
+    '#size' => 50,
+    '#maxlength' => 80,
+    '#default_value' => isset($node->email) ? $node->email : "",
+	);
+	$form['personalInfo']['phone'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Phone'),
+    '#size' => 30,
+    '#maxlength' => 64,
+    '#default_value' => isset($node->phone) ? $node->phone : "",
+    '#description' => t('(xxx-xxx-xxxx)'),
+	);
+	$form['personalInfo']['address'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Address'),
+    '#size' => 50,
+    '#maxlength' => 128,
+    '#default_value' => isset($node->address) ? $node->address : "",
+	);
+	$form['personalInfo']['city'] = array(
+    '#type' => 'textfield',
+    '#title' => t('City'),
+    '#size' => 30,
+    '#maxlength' => 64,
+    '#default_value' => isset($node->city) ? $node->city : "",
+	);
+	$form['personalInfo']['province'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Province/State'),
+    '#size' => 30,
+    '#maxlength' => 64,
+    '#default_value' => isset($node->province) ? $node->province : "",
+	);
+	$form['personalInfo']['country'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Country'),
+    '#size' => 30,
+    '#maxlength' => 64,
+     '#default_value' => isset($node->country) ? $node->country : "",
+	);
+
+	$form['educationFieldSet'] = array(
+    '#title' => t('Education Level'),
+	// type fieldset allows bundling of fields into one group - collapsible!!!
+    '#type' => 'fieldset', 
+    '#collapsible' => TRUE, 
+    '#collapsed' => FALSE 
+	);
+	$form['education_options'] = array(
+    '#type' => 'value', 
+
+    '#value' => array(t(''), t('Bachelor\'s degree'), t('Master\'s degree'), t('Doctoral degree')) 
+
+	);
+	$form['educationFieldSet']['educationlevel'] = array(
+    '#title' => t('Education Level'), 
+    '#type' => 'select', 
+    '#description' => t('Select your highest credential'),
+    '#default_value' => isset($node->educationlevel) ? $node->educationlevel : "", 
+    '#options' => $form['education_options']['#value'] 
+	);
+	$form['jobtypeFieldSet'] = array(
+    '#title' => t('Job Type'),
+	// type fieldset allows bundling of fields into one group - collapsible!!!
+    '#type' => 'fieldset', 
+    '#collapsible' => TRUE, 
+    '#collapsed' => FALSE 
+	);
+	$form['jobtype_options'] = array(
+    '#type' => 'value', 
+
+    '#value' => array(t(''), t('Full Time'), t('Part Time'), t('Internship'), t('Contract')) 
+
+	);
+	$form['jobtypeFieldSet']['jobtype'] = array(
+    '#title' => t('Job Type'), 
+    '#type' => 'select', 
+    '#description' => t('Select your interest in Job Type'), 
+    '#default_value' => isset($node->jobtype) ? $node->jobtype : "",
+    '#options' => $form['jobtype_options']['#value'] 
+	);
+
+	//$form['submit'] = array('#type' => 'submit', '#value' => t('Save'));
+	return $form;
+}
+
+/**
+ * A hook that validates all entries including email format, phone format and website format
+ */
+function gradprofile_validate($node, $form, &$form_state) {
+
+	if ($form_state['values']['email'] && !valid_email_address($form_state['values']['email'])) {
+		form_set_error('mail', t('The e-mail address you specified is not valid.'));
+	}
+
+	if ($form_state['values']['phone'] && !_gradprofile_valid_phone_number($form_state['values']['phone'])) {
+		form_set_error('phone', t('The phone number you specified is not valid.'));
+	}
+}
+
+/**
+ * Helper function to determine if phone number entered is  in valid format
+ * Return boolean
+ */
+function _gradprofile_valid_phone_number($text)
+{
+	$regex = '/(\d)?(\s|-)?(\()?(\d){3}(\))?(\s|-){1}(\d){3}(\s|-){1}(\d){4}$/';
+	if (preg_match($regex, $text)) {
+		return TRUE;
+	}
+	else {
+		return FALSE;
+	}
+}
+
+/**
+ * Implements hook_insert().
+ * A node hook that allows insertion of the Grad Profile data into the database when it is created
+ * */
+function gradprofile_insert($node) {
+
+	global $user;
+
+	db_insert('gradprofile')
+	->fields(array(
+			'nid' => $node->nid,	      
+			'uid' => $user->uid,
+	      'email' => $node->email,
+	      'phone' => $node->phone,
+	      'address' => $node->address,
+	      'city' => $node->city,
+	      'province' => $node->province,
+	      'country' => $node->country,
+	      'educationlevel' => $node->educationlevel,
+	      'jobtype' => $node->jobtype,
+	      'aboutme' => $node->aboutme
+
+
+	))
+	->execute();
+
+}
+
+/**
+ * Implements hook_update().
+ * A node hook that allows update of the Grad Profile data
+ * */
+function gradprofile_update($node) {
+
+	// probably shouldnt update user
+	global $user;
+
+	db_update('gradprofile')
+	->fields(array(
+	     'uid' => $user->uid,
+	//'nid' => $node->nid,
+	      'email' => $node->email,
+	      'phone' => $node->phone,
+	      'address' => $node->address,
+	      'city' => $node->city,
+	      'province' => $node->province,
+	      'country' => $node->country,
+	      'educationlevel'=> $node->educationlevel,
+	      'jobtype' => $node->jobtype,
+	      'aboutme' => $node->aboutme
+	))
+	->condition('nid', $node->nid)
+	->execute();
+}
+
+/**
+ * Implements hook_delete().
+ * A node hook that deletes the Grad Profile from the database
+ *  */
+function gradprofile_delete($node) {
+	db_delete('gradprofile')
+	->condition('nid', $node->nid)
+	->execute();
+}
+
+/**
+ * Implements hook_load().
+ * A hook that loads the Grad Profile for viewing
+ *  */
+function gradprofile_load($nodes) {
+	global $user;
+	$result = db_query('SELECT * FROM {gradprofile} WHERE nid IN (:nids)', array(':nids' => array_keys($nodes)));
+	foreach ($result as $record) {
+		$nodes[$record->nid]->phone = $record->phone;
+		$nodes[$record->nid]->email = $record->email;
+		$nodes[$record->nid]->address = $record->address;
+		$nodes[$record->nid]->city= $record->city;
+		$nodes[$record->nid]->province = $record->province;
+		$nodes[$record->nid]->country = $record->country;
+		$nodes[$record->nid]->educationlevel = $record->educationlevel;
+		$nodes[$record->nid]->jobtype = $record->jobtype;
+		$nodes[$record->nid]->aboutme = $record->aboutme;
+	}
+}
+
+function _get_educationlevel($level){
+	$educationlevel = NULL;
+	switch($level){
+		case (0):
+			$educationlevel = '';
+			break;
+		case (1):
+			$educationlevel = 'Bachelor\'s degree';
+			break;
+		case (2):
+			$educationlevel = 'Master\'s degree';
+			break;
+		case (3):
+			$educationlevel = 'Doctoral degree';
+			break;
+	}
+	return $educationlevel;
+}
+
+/**
+ * Implements hook_view().
+ * A node hook that provide the entities that would be formatted in the template file, profile.tpl.php
+ */
+function gradprofile_view($node, $view_mode) { // Add and theme the sponsor so it appears when the job post is displayed
+	global $base_url;
+	$result = db_query("SELECT m.filename FROM {field_data_grad_pdf} f, {file_managed} m " .
+   			                "WHERE f.entity_id = :nid AND " .
+   			                "f.bundle = :gradprofile AND " .
+   			                "f.grad_pdf_fid = m.fid", array (':nid' => $node->nid, ':gradprofile' =>"gradprofile"));
+	$file = NULL;
+	$filename = $result->fetchField();
+	if($filename){
+		$file = $base_url."/sites/default/files/field/resume/".$filename;
+	}
+
+	$education_level = _get_educationlevel($node->educationlevel);
+	$field_teaser =  field_extra_fields_get_display('node', 'gradprofile', 'teaser');
+	$node->content['profile'] = array(
+	    '#weight' => 1,		
+	    '#markup' => theme('profile', array(
+			'name' 	        => $node->title, 
+			'address' 		=> $node->address,
+			'city' 			=> $node->city,
+			'province' 		=> $node->province,
+			'country'		=> $node->country,
+			'educationlevel'=> $education_level,
+			'phone' 		=> $node->phone,
+			'jobtype'       => $node->jobtype,
+			'email' 		=> $node->email,
+			'aboutme' 		=> $node->aboutme,
+			'resume'        => $field_teaser,
+			'filename'      => $file
+
+	)
+	)
+	);
+
+	return $node;
+}
+
+/** 
+ * Implements hook_theme().
+ */
+function gradprofile_theme() {
+	return array(
+		'profile' => array(
+			'template' 	=> 'profile', 
+	// These are defaults
+			'variables' => array(	'title' => NULL, 
+									'address' => NULL, 
+									'city' => NULL, 
+									'province' => NULL, 
+									'country' => NULL, 
+									'educationlevel' => NULL, 
+									'phone' => NULL, 
+									'jobtype' => NULL, 
+									'email' => NULL, 
+									'aboutme' => NULL,
+									'resume'  => NULL
+	),
+	),
+	);
+}
+
+?>

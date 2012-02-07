@@ -1,0 +1,9 @@
+; $Id$
+
+name = Grad Profiles
+description = Module that adds support for the extended Grad Profiles.
+package = ACM SIGMOD Job & Resume Database
+version = alpha
+core = 7.x
+files[] = gradprofile.module
+configure = admin/gradprofile/settings

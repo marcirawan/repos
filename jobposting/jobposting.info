@@ -1,0 +1,10 @@
+; $Id$
+
+name = Job Posting
+description = Module that adds support for the Job Posting content-type.
+package = ACM SIGMOD Job & Resume Database
+version = alpha
+core = 7.x
+files[] = jobposting.install
+files[] = jobposting.module
+configure = admin/content/jobposting/settings

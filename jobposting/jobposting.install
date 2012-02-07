@@ -1,0 +1,203 @@
+<?php
+
+
+
+
+
+/**
+ * @file
+ * Install, update and uninstall functions for the jobposting module.
+ */
+// uid,nid,moreinfo,address,city,province,country,jobtype,edlevel,
+//  expiredate,email,cphone,webpage,company,pdf,status
+
+function jobposting_enable(){
+ 
+ $field = array(
+    'field_name' => 'jobposting_pdf',
+    'type' => 'file',
+    'cardinality' => 1,
+    'translatable' => TRUE,
+    'locked' => FALSE,
+    'indexes' => array('fid' => array('fid')),
+    'settings' => array(
+      'uri_scheme' => 'public',
+    ),
+    'storage' => array(
+      'type' => 'field_sql_storage',
+      'settings' => array(),
+    ),
+  );
+  field_create_field($field);
+
+
+  // Many of the following values will be defaulted, they're included here as an illustrative examples.
+  // See http://api.drupal.org/api/function/field_create_instance/7
+  $instance = array(
+    'field_name' => 'jobposting_pdf',
+    'entity_type' => 'node',
+    'label' => 'PDF file upload',
+    'bundle' => 'jobposting',
+    'description' => st('Upload your PDF file here'),
+    'required' => FALSE,
+
+    'settings' => array(
+      'file_directory' => 'field/jobposting',
+      'file_extensions' => 'pdf',
+      'max_filesize' => '',
+      'alt_field' => TRUE,
+      'title_field' => '',
+    ),
+
+    'widget' => array(
+      'type' => 'file_file',
+      'settings' => array(
+        'progress_indicator' => 'throbber',
+        'preview_image_style' => 'thumbnail',
+      ),
+      'weight' => -1,
+    ),
+
+    'display' => array(
+      'default' => array(
+        'title' => t('PDF file'),
+        'label' => 'hidden',
+        'type' => 'link',
+        'weight' => 10
+      ),
+    ),
+  );
+  field_create_instance($instance);
+  
+ 
+}
+
+
+/**
+ * Implements hook_schema().
+ */
+function jobposting_schema() {
+  $schema['jobposting'] = array(
+    'description' => 'Stores job posting specific information.',
+    'fields' => array(  
+      'description' => array(
+        'type' => 'text',
+      	'length' => 1000,
+        'not null' => FALSE,
+        'description' => 'Description of job',
+      ),
+      'nid' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => "The jobposting's {node}.nid.",
+      ),
+      'uid' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => "The jobposting's {node}.uid.",
+      ),
+      'company' => array(
+        'type' => 'varchar',
+      	'length' => 80,
+        'not null' => FALSE,
+        'description' => 'Company name',
+      ),
+      'contactperson' => array(
+        'type' => 'varchar',
+        'length' => 80,
+        'not null' => FALSE,
+        'description' => 'Contact Person',
+      ),
+      'email' => array(
+        'type' => 'varchar',
+      	'length' => 80,
+        'not null' => FALSE,
+        'description' => 'Contact email',
+      ),
+      'phone' => array(
+        'type' => 'varchar',
+      	'length' => 20,
+        'not null' => TRUE,
+        'default' => "n/a",
+        'description' => 'Contact phone',
+      ),
+      'address_street' => array(
+        'type' => 'varchar',
+      	'length' => 120,
+        'not null' => FALSE,
+        'description' => 'Street of job',
+      ),
+      'address_city' => array(
+        'type' => 'varchar',
+      	'length' => 80,
+        'not null' => FALSE,
+        'description' => 'City',
+      ),
+      'address_province' => array(
+        'type' => 'varchar',
+      	'length' => 80,
+        'not null' => FALSE,
+        'description' => 'Province',
+      ),
+		'address_country' => array(
+        'type' => 'varchar',
+      	'length' => 80,
+        'not null' => FALSE,
+        'description' => 'Country',
+      ),
+		'webpage' => array(
+        'type' => 'varchar',
+      	'length' => 256,
+        'not null' => FALSE,
+        'description' => 'Webpage',
+      ),
+      'education_level' => array(
+        'type' => 'int',
+        'not null' => FALSE,
+        'description' => 'Level of Education',
+      ),
+      'job_type' => array(
+        'type' => 'int',
+        'not null' => FALSE,
+        'description' => 'Job Type Interest ',
+      ),
+      'expiredate' => array(
+        'type' => 'int',
+        'not null' => FALSE,
+        'description' => 'Expiry date',
+      ),
+      'map_long' => array(
+        'type' => 'varchar',
+      	'length' => 80,
+        'description' => 'Longitude',
+      ),
+      'map_lat' => array(
+        'type' => 'varchar',
+      	'length' => 80,
+        'description' => 'Latitude',
+      ),
+  /*    'PDFstring' => array(
+        'type' => 'varchar',
+        'not null' => FALSE,
+        'description' => 'PDF String location',
+      ), */
+    ),
+    'primary key' => array('nid'),
+    'unique keys' => array(
+      'nid' => array('nid'),
+    ),
+  );
+
+  return $schema;
+}
+
+function jobposting_install(){
+	
+	//drupal_install_schema('jobposting');
+	//jobadmin_set_variables();
+	
+}

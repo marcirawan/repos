@@ -1,0 +1,600 @@
+<?php
+
+/**
+ * Implement hook_menu
+ */
+function jobposting_menu(){
+	$items['jobposting'] = array(
+      'title' => 'My Job Postings',
+      'page callback' => '_jobposting_job_list',
+	//'type' => MENU_NORMAL_ITEM,
+      'access arguments' => array('create jobposting content'),
+	  'menu_name'		   => 'main-menu',
+	);
+
+
+
+	return $items;
+}
+
+/**
+ * Return button
+ */
+function _jobposting_createnew_form(){
+
+	$form['submitButton'] = array(
+    '#type' => 'submit',
+    '#value' => t('Create New Job Posting'),
+	);
+	return $form;
+}
+
+
+/**
+ * Submit handler code for createnew_form
+ */
+function _jobposting_createnew_form_submit(){
+	global $base_url;
+	$alt_path = $base_url.'/?q=node/add/jobposting';
+	drupal_goto($alt_path);
+}
+
+/**
+ *
+ * Output the jobposts listing
+ */
+function _jobposting_job_list(){
+	$output = "";
+	$output.= drupal_render(drupal_get_form('_jobposting_createnew_form'));
+
+	global $user;
+
+	$header = array(
+	array('data' => t('Name'), 'field' => 'n.title'),
+	array('data' => t('Level of Education Needed'), 'field' => 'j.education_level'),
+	array('data' => t('Job Type'), 'field' => 'j.job_type'),
+	array('data' => t('Last Updated'), 'field' => 'n.changed', 'sort' => 'desc'),
+	array('data' => t('Status'), 'field' => 'n.status', 'sort' => 'desc'),
+	array('data' => t('Edit')),
+	);
+
+
+	// Query for jobpostings
+	$query = db_select('jobposting', 'j')
+	->extend('PagerDefault')->extend('TableSort');
+	$query->join('node', 'n', 'j.nid = n.nid');
+	$query
+	->fields('j', array('education_level', 'job_type', 'expiredate'))
+	->fields('n', array('title', 'changed', 'status', 'nid', 'uid'))
+	->condition('n.uid', $user->uid, '=' )
+	->limit(30)
+	->orderByHeader($header);
+
+	$result = $query->execute();
+	$rows = array();
+
+	foreach ($result as $jobpost) {
+
+		switch($jobpost->education_level) {
+			case 1:
+				$jobpost->education_level = "";
+				break;
+			case 2:
+				$jobpost->education_level = "Bachelors";
+				break;
+			case 3:
+				$jobpost->education_level = "Masters";
+				break;
+			case 4:
+				$jobpost->education_level = "Ph.D";
+				break;
+		}
+
+		//Display Job Type as string, instead of integer representation
+		switch($jobpost->job_type) {
+			case 1:
+				$jobpost->job_type = "";
+				break;
+			case 2:
+				$jobpost->job_type = "Full Time";
+				break;
+			case 3:
+				$jobpost->job_type = "Part Time";
+				break;
+			case 4:
+				$jobpost->job_type = "Contract";
+				break;
+			case 5:
+				$jobpost->job_type = "Internship";
+				break;
+		}
+
+		if($jobpost->status == 1) {
+			$published = "Published"; 
+		} else {
+			$published = "Pending Approval";
+		}
+
+		if(REQUEST_TIME > (int)$jobpost->expiredate) {
+			$published = "Expired";
+		}
+
+		$rows[] = array(
+		l($jobpost->title, 'node/' . $jobpost->nid), //link to Job Posting
+		$jobpost->education_level,
+		$jobpost->job_type,
+		array('data' => format_date($jobpost->changed, 'short'), 'class' => array('nowrap')),
+		$published,
+		l("edit", 'node/'.$jobpost->nid.'/edit'),
+		);
+	}
+
+	// Format into a table
+	$build['job_table'] = array(
+    '#theme' => 'table',
+    '#header' => $header,
+    '#rows' => $rows,
+    '#empty' => t('No available job postings meet your search criteria.'),
+	);
+	$build['job_pager'] = array('#theme' => 'pager');
+
+	$output.= drupal_render($build);
+
+	return $output;
+}
+
+/**
+ *
+ */
+function jobposting_node_info() {
+	return array(
+        'jobposting' => array(
+            'name'          		=>  t('Job Posting'),
+            'base'          		=>  'jobposting',
+            'description'   		=>  t('Job Postings'),
+            'has_title'    		 	=>  TRUE,
+            'title_label'   		=>  t('Job Title'),
+            'locked'        		=>  FALSE,
+            'help'          		=>  t('Please fill all required fields, 
+                                    	 and preferably optional ones as well.')));
+}
+
+
+
+/**
+ * Implement hook_form() with the standard default form.
+ */
+function jobposting_form($node, $form_state) {
+
+	drupal_add_js('jQuery(document).ready(function() {jQuery("#datepicker").datepicker();});', 'inline');
+	drupal_add_library('system','ui.datepicker');
+	$type = node_type_get_type($node);
+
+	global $user;
+
+	$query = db_select('jobposterprofile', 'jpp');
+	$query->join('node', 'n', 'jpp.nid = n.nid');
+	$query
+	->fields('n', array('title'))
+	->fields('jpp', array('nid', 'address', 'city', 'province', 'country', 'contactperson', 'phone', 'contactphone', 'email', 'website'))
+	->condition('jpp.uid', $user->uid, '=')  ;
+	$companyprofile = $query->execute()->fetchObject();
+
+	$form['title'] = array(
+	    '#type' => 'textfield', 
+	    '#title' => check_plain($type->title_label), 
+	    '#default_value' => !empty($node->title) ? $node->title : '', 
+	    '#required' => TRUE, 
+	    '#weight' => -5,
+	);
+
+	$form['company'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Company Name'),
+		//auto-fill to company name in profile
+      '#default_value' => !empty($node->company) ? $node->company : isset($companyprofile->title) ? $companyprofile->title : "",
+      '#size' => 60,
+      '#maxlength' => 128,
+      '#required' => FALSE,
+	);
+
+	$form['description'] = array(
+	  '#type' => 'textarea',
+	  '#title' => t('Description'),
+	  '#default_value' => !empty($node->description) ? $node->description : '',
+	  '#cols' => 2,
+	  '#rows' => 4,
+	  '#required' => FALSE,
+	  '#description' => t('Job description. Alternatively, you may attach a .pdf file.')
+	);
+
+	$form['address_street'] = array(
+	  '#type' => 'textfield',
+	  '#title' => t('Street Address'),
+	//auto-fill to info in profile
+	  '#default_value' => !empty($node->address_street) ? $node->address_street : (isset($companyprofile->address) ? $companyprofile->address : ""),
+	  '#size' => 60,
+	  '#maxlength' => 128,
+	  '#required' => FALSE,
+	);
+
+	$form['address_city'] = array(
+	  '#type' => 'textfield',
+	  '#title' => t('City'),
+	//auto-fill to info in profile
+	  '#default_value' => !empty($node->address_city) ? $node->address_city : (isset($companyprofile->city) ? $companyprofile->city : ""),
+	  '#size' => 60,
+	  '#maxlength' => 128,
+	  '#required' => FALSE,
+	);
+
+	$form['address_province'] = array(
+	  '#type' => 'textfield',
+	  '#title' => t('Province/State'),
+	//auto-fill to info in profile
+	  '#default_value' => !empty($node->address_province) ? $node->address_province : (isset($companyprofile->province) ? $companyprofile->province : ""),
+	  '#size' => 60,
+	  '#maxlength' => 128,
+	  '#required' => FALSE,
+	);
+
+	$form['address_country'] = array(
+	  '#type' => 'textfield',
+	  '#title' => t('Country'),
+	//auto-fill to info in profile
+	  '#default_value' => !empty($node->address_country) ? $node->address_country : (isset($companyprofile->country) ? $companyprofile->country : ""),
+	  '#size' => 60,
+	  '#maxlength' => 128,
+	  '#required' => FALSE,
+	);
+
+	$form['job_type'] = array(
+	  '#type' => 'select',
+	  '#title' => t('Type of Job'),
+	  '#default_value' => !empty($node->job_type) ? $node->job_type : '',
+	  '#options' => array(
+	1 => t('---------'),
+	2 => t('Full-time'),
+	3 => t('Part-time'),
+	4 => t('Contract'),
+	5 => t('Internship')
+	),
+	  '#required' => FALSE,
+	);
+
+	$form['education_level'] = array(
+	  '#type' => 'select',
+	  '#title' => t('Required Level of Education'),
+	  '#default_value' => !empty($node->education_level) ? $node->education_level : '',
+	    '#options' => array(
+	1 => t('---------'),
+	2 => t('Bachelors Degree'),
+	3 => t('Masters Degree'),
+	4 => t('Ph.D.')
+	),
+	  '#required' => FALSE,
+	);
+
+	//needs to be a date
+	$form['expiredate'] = array(
+	  '#type' => 'textfield',
+	  '#title' => t('Date of Expiry'),
+	  '#default_value' => !empty($node->expiredate) ? $node->expiredate : date("m/d/y", time()+(60*60*24*30*6)), //6 months in advance
+	  '#size' => 60,
+	  '#maxlength' => 128,
+	  '#id' => 'datepicker',
+	  '#required' => FALSE,
+	  '#description' => t('The Job Posting will be posted until the date specified.')
+	);
+
+	$form['contactperson'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Contact Person'),
+	//auto-fill to info in profile
+      '#default_value' => !empty($node->email) ? $node->email : (isset($companyprofile->contactperson) ? $companyprofile->contactperson : ""),
+      '#size' => 60,
+      '#maxlength' => 128,
+      '#required' => FALSE,
+	);
+
+	$form['email'] = array(
+	  '#type' => 'textfield',
+	  '#title' => t('Contact E-mail address'),
+	//auto-fill to info in profile
+	  '#default_value' => !empty($node->email) ? $node->email : (isset($companyprofile->email) ? $companyprofile->email : ""),
+	  '#size' => 60,
+	  '#maxlength' => 128,
+	  '#required' => FALSE,
+	);
+
+	$form['phone'] = array(
+	  '#type' => 'textfield',
+	  '#title' => t('Contact Phone'),
+	//auto-fill to info in profile
+	  '#default_value' => !empty($node->phone) ? $node->phone : (isset($companyprofile->phone) ? $companyprofile->phone : ""),
+	  '#size' => 60,
+	  '#maxlength' => 128,
+	  '#required' => FALSE,
+	);
+
+	$form['webpage'] = array(
+	  '#type' => 'textfield',
+	  '#title' => t('Company Webpage'),
+	//auto-fill to info in profile
+	  '#default_value' => !empty($node->webpage) ? $node->webpage : (isset($companyprofile->website) ? $companyprofile->website : ""),
+	  '#size' => 60,
+	  '#maxlength' => 128,
+	  '#required' => FALSE,	
+	);
+
+	return $form;
+}
+
+
+/**
+ * Implements hook_insert(). */
+function jobposting_insert($node) {
+
+	global $user;
+	
+	db_insert('jobposting')
+	->fields(array(
+          'uid' 			  => $user->uid,
+          'nid' 			  => $node->nid,
+          'description'       => $node->description,
+          'address_street'    => $node->address_street,
+          'address_city'      => $node->address_city,
+          'address_province'  => $node->address_province,
+          'address_country'   => $node->address_country,
+          'job_type'          => $node->job_type,
+          'education_level'	  => $node->education_level,
+          'expiredate'        => strtotime($node->expiredate),
+          'email'     		  => $node->email,
+          'phone'   		  => $node->phone,
+          'webpage'           => $node->webpage,
+          'company'           => $node->company,
+	))
+	->execute();
+
+	$query = db_select('preapproved', 'u');
+	$query->fields('u', array('uid'));
+	$query ->condition('u.uid', $node->uid , '=');
+	$count_query = $query->countQuery()->execute()->fetchField();
+
+	//drupal_set_message(variable_get('preApprovedJP'));
+	if(1==$count_query  && 1==variable_get('preApprovedJP')){
+
+		db_update('node')
+		->fields(array(
+	  	  'status' =>1,
+		))
+		->condition('uid', $node->uid, "=")
+		->execute();
+	}
+
+}
+
+/**
+ * Implements hook_update(). */
+function jobposting_update($node) {
+
+	// Google Maps Geocoding
+	$lat = "";
+	$lng = "";
+
+	$apikey = variable_get("acm_googlemapsapikey", "");
+	if($apikey!="") {
+		$maps_host = "maps.google.com";
+		$key = $apikey;
+
+		$base_url = "http://" . $maps_host . "/maps/geo?output=xml" . "&key=" . $key;
+		$geocode_pending = true;
+		$delay = 0;
+		while ($geocode_pending) {
+			$address = 	$node->address_street . ', ' . $node->address_city . ', ' .
+			$node->address_province . ', ' . $node->address_country;
+
+			$request_url = $base_url . "&q=" . urlencode($address);
+			$xml = simplexml_load_file($request_url) or die("url not loading");
+
+			$status = $xml->Response->Status->code;
+			if (strcmp($status, "200") == 0) {
+				// Successful geocode
+				$geocode_pending = false;
+				$coordinates = $xml->Response->Placemark->Point->coordinates;
+				$coordinatesSplit = explode(",", $coordinates);
+				// Format: Longitude, Latitude, Altitude
+				$lat = $coordinatesSplit[1];
+				$lng = $coordinatesSplit[0];
+			} else if (strcmp($status, "620") == 0) {
+				// sent geocodes too fast
+				$delay += 100000;
+			} else {
+				// failure to geocode
+				$geocode_pending = false;
+				echo "Address " . $address . " failed to geocoded. ";
+				echo "Received status " . $status . "\n";
+			}
+			usleep($delay);
+		}
+	}
+
+	db_update('jobposting')
+	->fields(array(
+	//'uid' => $user->uid,
+          'description'       => $node->description,
+          'address_street'    => $node->address_street,
+          'address_city'      => $node->address_city,
+          'address_province'  => $node->address_province,
+          'address_country'   => $node->address_country,
+          'job_type'          => $node->job_type,
+          'education_level'   => $node->education_level,
+          'expiredate'        => strtotime($node->expiredate),
+          'email'     		  => $node->email,
+          'phone'    		  => $node->phone,
+          'webpage'           => $node->webpage,
+          'company'           => $node->company,
+          'map_long'          => $lng,
+          'map_lat'           => $lat,
+	))
+	->condition('nid', $node->nid)
+	->execute();
+}
+
+
+/**
+ * Implements hook_load(). */
+function jobposting_load($nodes) {
+	global $user;
+	$result = db_query('SELECT * FROM {jobposting} WHERE nid IN (:nids)', array(':nids' => array_keys($nodes)));
+	foreach ($result as $record) {
+		$nodes[$record->nid]->description = $record->description;
+		$nodes[$record->nid]->address_street = $record->address_street;
+		$nodes[$record->nid]->address_city= $record->address_city;
+		$nodes[$record->nid]->address_province = $record->address_province;
+		$nodes[$record->nid]->address_country = $record->address_country;
+		$nodes[$record->nid]->job_type = $record->job_type;
+		$nodes[$record->nid]->education_level = $record->education_level;
+		$nodes[$record->nid]->expiredate = date("m/d/y", $record->expiredate);
+		$nodes[$record->nid]->email = $record->email;
+		$nodes[$record->nid]->phone = $record->phone;
+		$nodes[$record->nid]->webpage = $record->webpage;
+		$nodes[$record->nid]->company = $record->company;
+	}
+}
+
+function _jobposting_valid_phone_number($text)
+{
+	$regex = '/(\d)?(\s|-)?(\()?(\d){3}(\))?(\s|-){1}(\d){3}(\s|-){1}(\d){4}$/';
+	if (preg_match($regex, $text)) {
+		return TRUE;
+	}
+	else {
+		return FALSE;
+	}
+}
+
+/**
+ * Implements hook_validate(). */
+function jobposting_validate($node, $form, &$form_state) {
+
+	// expiry date
+	$expiredate = $form_state['values']['expiredate'];
+	if ($expiredate && (strtotime($expiredate) < $node->created))  {
+		form_set_error('expiry date',
+		t('Expiry date is before posting date.'),
+		$limit_validation_errors = NULL);
+	}
+
+
+	//Checks if email address is valid
+	$email = $form_state['values']['email'];
+	if ($email && (!valid_email_address($email)))  {
+		form_set_error('email',
+		t('Invalid email address.'),
+		$limit_validation_errors = NULL);
+	}
+
+	// phone validation
+	if ($form_state['values']['phone'] && !_jobposting_valid_phone_number($form_state['values']['phone'])) {
+		form_set_error('phone', t('The phone number you specified is not valid.'));
+	}
+
+	// Checks if webpage valid
+	$webpage = $form_state['values']['webpage'];
+	if ($webpage && (valid_url($webpage, $absolute = TRUE) != TRUE))  {
+		form_set_error('company webpage',
+		t('Webpage: invalid.'),
+		$limit_validation_errors = NULL);
+	}
+
+	// See http://drupal.org/node/322290
+	//  for why we need to add this JS here also (ontop of jobposting_form)
+	drupal_add_js('jQuery(document).ready(function() {jQuery("#datepicker").datepicker();});', 'inline');
+	drupal_add_library('system','ui.datepicker');
+}
+
+
+/**
+ * Implements hook_delete(). */
+function jobposting_delete($node) {
+	db_delete('jobposting')
+	->condition('nid', $node->nid)
+	->execute();
+}
+
+/**
+ * Implements hook_view(). */
+function jobposting_view($node, $view_mode) {
+
+	global $base_url, $user;
+	$result = db_query("SELECT m.filename FROM {field_data_jobposting_pdf} f, {file_managed} m " .
+   			                "WHERE f.entity_id = :nid AND " .
+   			                "f.bundle = :jobposting AND " .
+   			                "f.jobposting_pdf_fid = m.fid", array (':nid' => $node->nid, ':jobposting' =>"jobposting"));
+	$file = NULL;
+	$filename = $result->fetchField();
+	if($filename){
+		$file = $base_url."/sites/default/files/field/jobposting/".$filename;
+	}
+
+	$company = db_select('jobposterprofile', 'jpp')
+	->fields('jpp', array('nid'))
+	->condition('uid', $node->uid, '=')
+	->execute()
+	->fetchfield();
+	$companylink = $base_url.'/?q=node/'.$company;
+
+
+	$node->content['posting'] = array(
+	    '#weight' => 1,		
+	    '#markup' => theme('posting', array(
+			'jobtitle' 			=> $node->title, 
+			'description' 		=> $node->description, 
+			'address_street'	=> $node->address_street,
+			'address_city' 		=> $node->address_city,
+			'address_province' 	=> $node->address_province,
+			'address_country'	=> $node->address_country,
+			'job_type' 			=> $node->job_type,
+			'education_level'	=> $node->education_level,
+			'expiredate' 		=> $node->expiredate,
+			'email' 			=> $node->email,
+			'phone' 			=> $node->phone,
+			'company' 			=> $node->company,
+			'webpage' 			=> $node->webpage,
+			'filename'          => $file,
+			'companylink'       => $companylink
+	)
+	)
+	);
+
+	return $node;
+}
+
+/**
+ * Implements hook_theme(). 
+ */
+function jobposting_theme($node, $view_mode, $block = FALSE) {
+	return array(
+		'posting' => array(
+			'template' 	=> 'full-posting', 
+	// These are defaults
+			'variables' => array(
+					'jobtitle' 			=> NULL, 
+					'description' 		=> NULL, 
+					'address_street'	=> NULL, 
+					'address_city' 		=> NULL, 
+					'address_province' 	=> NULL, 
+					'address_country'	=> NULL, 
+					'job_type' 			=> NULL, 
+					'education_level'	=> NULL, 
+					'expiredate' 		=> NULL, 
+					'email' 			=> NULL, 
+					'phone' 			=> NULL, 
+					'company' 			=> NULL, 
+					'webpage' 			=> NULL, 
+	)),
+	);
+}
+
+?>
